@@ -43,7 +43,7 @@ void setup() {
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     Serial.println("Connection Failed! Rebooting...");
     ESP.restart();
-  } 
+  }
 
   isWifiConnected = true;
 
@@ -253,44 +253,118 @@ void config_rest_server_routing() {
   // Standard route, maybe presenting the available routes?
   http_rest_server.on("/", HTTP_GET, []() {
 http_rest_server.send(200, "text/html", R"rawliteral(
-    <!DOCTYPE html>
-    <html lang='en'>
-    <head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>API Routes Overview</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
-        .container { max-width: 800px; margin: auto; padding: 20px; }
-        h1 { text-align: center; color: #333; }
-        .api-route { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
-        .route-name { font-weight: bold; color: #007BFF; }
-        .description { margin: 5px 0; }
-    </style>
-    </head>
-    <body>
-
-    <div class='container'>
-        <h1>Available API Routes</h1>
-        
-        <div class='api-route'>
-            <div class='route-name'><a href="/moveDoor">/moveDoor</a></div>
-            <div class='description'>Move door to open or closed. This route allows you to control the door's position.</div>
-        </div>
-        
-        <div class='api-route'>
-            <div class='route-name'><a href="/doorStatus">/doorStatus</a></div>
-            <div class='description'>Retrieve current status of the door. Use this to check if the door is open, moving or closed.</div>
-        </div>
-        
-        <div class='api-route'>
-            <div class='route-name'><a href="/deviceInfo">/deviceInfo</a></div>
-            <div class='description'>Retrieve basic info from the device. Provides essential information about the device.</div>
-        </div>
+<!DOCTYPE html>
+<html lang='sv'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>espGarageController</title>
+<style>
+  :root{
+    --bg1:#0f172a; --bg2:#1e293b; --card:rgba(255,255,255,.06);
+    --border:rgba(255,255,255,.12); --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#38bdf8; --accent2:#818cf8;
+    --open:#f59e0b; --closed:#22c55e; --moving:#38bdf8; --unknown:#94a3b8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;color:var(--txt);padding:32px 16px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%,#1e3a8a44,transparent),
+      radial-gradient(1000px 500px at 100% 0%,#6d28d944,transparent),
+      linear-gradient(160deg,var(--bg1),var(--bg2));}
+  .wrap{max-width:680px;margin:0 auto}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .logo{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 24px #38bdf855}
+  h1{font-size:1.5rem;margin:0;font-weight:700;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:.9rem;margin:2px 0 0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;margin-top:16px;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .status{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .badge{display:inline-flex;align-items:center;gap:12px;font-weight:700;font-size:1.25rem}
+  .dot{width:16px;height:16px;border-radius:50%;box-shadow:0 0 0 5px #ffffff14;transition:background .3s}
+  .btn{appearance:none;border:0;cursor:pointer;font:inherit;font-weight:600;color:#06121f;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));padding:12px 22px;border-radius:12px;
+    box-shadow:0 8px 20px #38bdf844;transition:transform .08s ease}
+  .btn:hover{transform:translateY(-1px)} .btn:active{transform:translateY(1px)}
+  h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+  .stat{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .stat .k{color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em}
+  .stat .v{font-size:1.05rem;font-weight:600;margin-top:4px;word-break:break-all}
+  .route{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+  .route:last-child{border-bottom:0}
+  .method{font-size:.68rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:3px 8px}
+  .route a{color:var(--txt);text-decoration:none;font-weight:600}
+  .route a:hover{color:var(--accent)}
+  .route .desc{color:var(--muted);font-size:.84rem;margin-top:2px}
+  footer{text-align:center;color:var(--muted);font-size:.76rem;margin-top:22px}
+</style>
+</head>
+<body>
+<div class='wrap'>
+  <header>
+    <div class='logo'>
+      <svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='#06121f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 10l9-6 9 6v11H3z'/><path d='M3 14h18M3 18h18'/></svg>
     </div>
+    <div>
+      <h1>espGarageController</h1>
+      <p class='sub'>ESP8266 &middot; smart garageportstyrning</p>
+    </div>
+  </header>
 
-    </body>
-    </html>
+  <div class='card'>
+    <div class='status'>
+      <span class='badge'><span class='dot' id='dot' style='background:var(--unknown)'></span><span id='doorState'>Laddar...</span></span>
+      <button class='btn' id='moveBtn'>Kör porten</button>
+    </div>
+  </div>
+
+  <div class='card'>
+    <h2>Enhet</h2>
+    <div class='grid'>
+      <div class='stat'><div class='k'>IP</div><div class='v' id='ip'>-</div></div>
+      <div class='stat'><div class='k'>Signal</div><div class='v' id='rssi'>-</div></div>
+      <div class='stat'><div class='k'>Nat</div><div class='v' id='ssid'>-</div></div>
+      <div class='stat'><div class='k'>Upptid</div><div class='v' id='uptime'>-</div></div>
+    </div>
+  </div>
+
+  <div class='card'>
+    <h2>API-rutter</h2>
+    <div class='route'><span class='method'>GET</span><div><a href='/moveDoor'>/moveDoor</a><div class='desc'>Oppna eller stang porten.</div></div></div>
+    <div class='route'><span class='method'>GET</span><div><a href='/doorStatus'>/doorStatus</a><div class='desc'>Hamta portens aktuella status.</div></div></div>
+    <div class='route'><span class='method'>GET</span><div><a href='/deviceInfo'>/deviceInfo</a><div class='desc'>Enhetsinformation (IP, signal, sensorer).</div></div></div>
+  </div>
+
+  <footer>Live-status uppdateras automatiskt</footer>
+</div>
+
+<script>
+  var COLORS={open:'var(--open)',closed:'var(--closed)',moving:'var(--moving)',unknown:'var(--unknown)'};
+  var LABEL={open:'Oppen',closed:'Stangd',moving:'Ror sig',unknown:'Okand'};
+  function $(id){return document.getElementById(id);}
+  function refresh(){
+    fetch('/deviceInfo',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      var s=(d.doorStatus||'unknown').toLowerCase();
+      $('doorState').textContent=LABEL[s]||s;
+      $('dot').style.background=COLORS[s]||COLORS.unknown;
+      $('ip').textContent=d.ipAddress||'-';
+      $('rssi').textContent=(d.rssi!=null?d.rssi+' dBm':'-');
+      $('ssid').textContent=d.ssid||'-';
+      var u=d.uptime||0, h=Math.floor(u/3600), m=Math.floor((u%3600)/60);
+      $('uptime').textContent=h+'h '+m+'m';
+    }).catch(function(){ $('doorState').textContent='Offline'; });
+  }
+  $('moveBtn').addEventListener('click',function(){
+    if(!confirm('Kor porten nu?'))return;
+    fetch('/moveDoor',{cache:'no-store'}).catch(function(){});
+    setTimeout(refresh,800);
+  });
+  refresh(); setInterval(refresh,3000);
+</script>
+</body>
+</html>
     )rawliteral");
   });
 
