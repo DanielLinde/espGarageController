@@ -1,0 +1,7 @@
+# Hemligheter – committas aldrig
+espGarageController/secrets.h
+
+# Arduino build-artefakter
+build/
+*.bin
+*.elf
